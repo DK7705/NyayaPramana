@@ -1,0 +1,356 @@
+import { useState, useEffect } from 'react';
+import { api } from '../api.js';
+
+export default function ClassData({ user, notify }) {
+  const [classes, setClasses] = useState([]);
+  const [selectedClassId, setSelectedClassId] = useState(null);
+  const [classDetail, setClassDetail] = useState(null);
+  const [gameStats, setGameStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+
+  useEffect(() => { loadClasses(); }, []);
+
+  async function loadClasses() {
+    try {
+      setLoading(true);
+      const data = await api.getMyClasses();
+      setClasses(data);
+      if (data.length > 0) {
+        await selectClass(data[0].id);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function selectClass(classId) {
+    setSelectedClassId(classId);
+    setShowStats(false);
+    try {
+      setDetailLoading(true);
+      const data = await api.getClassStudents(classId);
+      setClassDetail(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function viewGameStats(classId) {
+    try {
+      setDetailLoading(true);
+      const data = await api.getGameStats(classId);
+      setGameStats(data);
+      setShowStats(true);
+    } catch (e) {
+      console.error(e);
+      notify('Failed to load game stats.', 'error');
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  function getStatusPill(accuracy) {
+    if (accuracy >= 80) return { cls: 'pill-green', text: '✓ Excellent' };
+    if (accuracy >= 60) return { cls: 'pill-yellow', text: '◎ Good' };
+    return { cls: 'pill-red', text: '⚠ Needs Help' };
+  }
+
+  function downloadPDF() {
+    if (!gameStats && !classDetail) return;
+
+    const data = showStats ? gameStats : null;
+    const students = classDetail?.students || [];
+    const classInfo = showStats ? data?.classInfo : classDetail?.classInfo;
+    const results = showStats ? data?.results : [];
+    const summary = showStats ? data?.summary : null;
+
+    // Build HTML for PDF
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${classInfo?.name || 'Class'} - Student Report</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #1a1a2e; background: #fff; }
+    .header { text-align: center; margin-bottom: 32px; padding-bottom: 20px; border-bottom: 3px solid #FF6B35; }
+    .header h1 { font-size: 28px; color: #FF6B35; margin-bottom: 4px; }
+    .header h2 { font-size: 18px; color: #333; margin-bottom: 8px; }
+    .header .meta { font-size: 12px; color: #777; }
+    .summary { display: flex; gap: 20px; margin-bottom: 28px; }
+    .summary-card { flex: 1; padding: 16px; border: 1px solid #e0e0e0; border-radius: 8px; text-align: center; }
+    .summary-card .val { font-size: 24px; font-weight: 700; color: #FF6B35; }
+    .summary-card .label { font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th { background: #f7f7f7; color: #555; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; padding: 10px 12px; text-align: left; border-bottom: 2px solid #e0e0e0; }
+    td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+    tr:nth-child(even) td { background: #fafafa; }
+    .status-excellent { color: #16a34a; font-weight: 600; }
+    .status-good { color: #d97706; font-weight: 600; }
+    .status-needs-help { color: #dc2626; font-weight: 600; }
+    .section-title { font-size: 16px; font-weight: 700; margin: 24px 0 12px; color: #333; }
+    .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e0e0e0; font-size: 11px; color: #999; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🕉️ Nyaya Pramana</h1>
+    <h2>${classInfo?.name || 'Student Report'}</h2>
+    <div class="meta">
+      Type: ${classInfo?.type || 'N/A'} | Code: ${classInfo?.code || classInfo?.class_code || 'N/A'} | Generated: ${new Date().toLocaleDateString()}
+    </div>
+  </div>
+
+  ${summary ? `
+  <div class="summary">
+    <div class="summary-card"><div class="val">${summary.totalStudents}</div><div class="label">Total Students</div></div>
+    <div class="summary-card"><div class="val">${summary.avgScore}</div><div class="label">Avg Score</div></div>
+    <div class="summary-card"><div class="val">${summary.avgAccuracy}%</div><div class="label">Avg Accuracy</div></div>
+    <div class="summary-card"><div class="val">${Math.floor(summary.avgTime / 60)}m ${summary.avgTime % 60}s</div><div class="label">Avg Time</div></div>
+  </div>
+  ` : ''}
+
+  ${showStats && results.length > 0 ? `
+  <div class="section-title">Game Results</div>
+  <table>
+    <thead>
+      <tr><th>Student</th><th>Score</th><th>Accuracy</th><th>Correct/Total</th><th>Time</th><th>Status</th><th>Date</th></tr>
+    </thead>
+    <tbody>
+      ${results.map(r => {
+        const status = r.accuracy >= 80 ? 'excellent' : r.accuracy >= 60 ? 'good' : 'needs-help';
+        return `<tr>
+          <td><strong>${r.name}</strong></td>
+          <td>${r.score}</td>
+          <td>${r.accuracy}%</td>
+          <td>${r.correct}/${r.total}</td>
+          <td>${Math.floor(r.time_seconds / 60)}m ${r.time_seconds % 60}s</td>
+          <td class="status-${status}">${status === 'excellent' ? '✓ Excellent' : status === 'good' ? '◎ Good' : '⚠ Needs Help'}</td>
+          <td>${new Date(r.completed_at).toLocaleDateString()}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+  ` : ''}
+
+  ${!showStats && students.length > 0 ? `
+  <div class="section-title">Enrolled Students</div>
+  <table>
+    <thead>
+      <tr><th>Student</th><th>Email</th><th>Score</th><th>Accuracy</th><th>Levels</th><th>Hints</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      ${students.map(s => {
+        const status = (s.overall_accuracy || 0) >= 80 ? 'excellent' : (s.overall_accuracy || 0) >= 60 ? 'good' : 'needs-help';
+        return `<tr>
+          <td><strong>${s.name}</strong></td>
+          <td>${s.email}</td>
+          <td>${s.total_score || 0}</td>
+          <td>${s.overall_accuracy || 0}%</td>
+          <td>${(s.completed_levels || []).length}/10</td>
+          <td>${s.hints_used || 0}</td>
+          <td class="status-${status}">${status === 'excellent' ? '✓ Excellent' : status === 'good' ? '◎ Good' : '⚠ Needs Help'}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+  ` : ''}
+
+  <div class="footer">
+    Nyaya Pramana — IKS-Based Serious Game for Cognitive Learning | Report generated on ${new Date().toLocaleString()}
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(html);
+    printWindow.document.close();
+    setTimeout(() => { printWindow.print(); }, 500);
+  }
+
+  if (loading) {
+    return <div className="dashboard"><div style={{ textAlign: 'center', padding: 60, color: 'var(--gold)' }}>Loading class data...</div></div>;
+  }
+
+  return (
+    <div className="dashboard">
+      <div className="dashboard-header">
+        <div className="dashboard-header-left">
+          <div className="welcome-text">✦ Class Data</div>
+          <div className="dashboard-title">Student Performance</div>
+          <div style={{ fontSize: 13, color: 'var(--text-faded)', marginTop: 4 }}>
+            Data segregated by class, game, and quiz
+          </div>
+        </div>
+        <div className="dashboard-header-right">
+          {(classDetail || gameStats) && (
+            <button className="btn-primary" onClick={downloadPDF} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              📄 Download PDF Report
+            </button>
+          )}
+        </div>
+      </div>
+
+      {classes.length === 0 ? (
+        <div className="glass-strong" style={{ padding: 48, textAlign: 'center', borderRadius: 24 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
+          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>No Classes Yet</div>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>Create a game or quiz first to see student data here.</div>
+        </div>
+      ) : (
+        <>
+          {/* Class Selector Tabs */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
+            {classes.map(cls => (
+              <button key={cls.id}
+                className={`nav-btn ${selectedClassId === cls.id ? 'nav-btn-active' : 'nav-btn-inactive'}`}
+                onClick={() => selectClass(cls.id)}
+                style={{ fontSize: 13 }}>
+                {cls.type === 'quiz' ? '📝' : cls.type === 'game' ? '🎮' : '📚'} {cls.name}
+                <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.7 }}>({cls.student_count})</span>
+              </button>
+            ))}
+          </div>
+
+          {detailLoading ? (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--gold)' }}>Loading...</div>
+          ) : classDetail && !showStats ? (
+            <>
+              {/* Class Summary Stats */}
+              <div className="stats-grid" style={{ marginBottom: 28 }}>
+                {[
+                  { icon: '👥', val: classDetail.students.length, label: 'ENROLLED', color: 'var(--saffron)', cls: 'stat-card-1' },
+                  { icon: '📊', val: classDetail.students.length > 0 ? Math.round(classDetail.students.reduce((s, st) => s + (st.overall_accuracy || 0), 0) / classDetail.students.length) + '%' : '0%', label: 'AVG ACCURACY', color: 'var(--gold)', cls: 'stat-card-2' },
+                  { icon: '🏅', val: classDetail.students.length > 0 ? Math.round(classDetail.students.reduce((s, st) => s + (st.total_score || 0), 0) / classDetail.students.length) : 0, label: 'AVG SCORE', color: 'var(--sacred-teal)', cls: 'stat-card-3' },
+                  { icon: '📝', val: classDetail.classResults?.length || 0, label: 'SUBMISSIONS', color: 'var(--lotus-pink)', cls: 'stat-card-4' }
+                ].map(s => (
+                  <div key={s.label} className={`stat-card ${s.cls} glass`}>
+                    <div className="stat-icon">{s.icon}</div>
+                    <div className="stat-value" style={{ color: s.color }}>{s.val}</div>
+                    <div className="stat-label">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* View Game Stats Button */}
+              <div style={{ marginBottom: 20 }}>
+                <button className="btn-outline" onClick={() => viewGameStats(selectedClassId)} style={{ fontSize: 13 }}>
+                  📈 View Game Results & Stats
+                </button>
+              </div>
+
+              {/* Student Table */}
+              {classDetail.students.length > 0 ? (
+                <div className="glass-strong" style={{ padding: 24, borderRadius: 24, overflowX: 'auto' }}>
+                  <table className="student-table">
+                    <thead>
+                      <tr>
+                        <th>Student</th><th>Score</th><th>Accuracy</th><th>Levels</th>
+                        <th>Hints</th><th>Avg Time</th><th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {classDetail.students.map(s => {
+                        const pill = getStatusPill(s.overall_accuracy || 0);
+                        return (
+                          <tr key={s.id}>
+                            <td>
+                              <div style={{ fontWeight: 600 }}>{s.name}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text-faded)' }}>{s.email}</div>
+                            </td>
+                            <td style={{ fontWeight: 700, color: 'var(--gold)' }}>{s.total_score || 0}</td>
+                            <td style={{ color: (s.overall_accuracy || 0) >= 75 ? '#86efac' : (s.overall_accuracy || 0) >= 60 ? 'var(--gold)' : '#fca5a5' }}>
+                              {s.overall_accuracy || 0}%
+                            </td>
+                            <td>
+                              <div style={{
+                                display: 'inline-flex', width: 28, height: 28, borderRadius: 8,
+                                alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12,
+                                background: 'rgba(247,201,72,0.2)', color: 'var(--gold)'
+                              }}>{(s.completed_levels || []).length}</div>
+                            </td>
+                            <td style={{ color: 'var(--text-muted)' }}>{s.hints_used || 0}</td>
+                            <td style={{ color: 'var(--text-faded)' }}>{Math.round(s.avg_time / 60)}m</td>
+                            <td><span className={`pill ${pill.cls}`}>{pill.text}</span></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="glass" style={{ padding: 32, textAlign: 'center', borderRadius: 16, color: 'var(--text-muted)' }}>
+                  No students enrolled in this class yet.
+                </div>
+              )}
+            </>
+          ) : showStats && gameStats ? (
+            <>
+              <button className="btn-outline" onClick={() => setShowStats(false)} style={{ marginBottom: 16, fontSize: 13 }}>
+                ← Back to Class Details
+              </button>
+
+              {/* Game Stats Summary */}
+              <div className="stats-grid" style={{ marginBottom: 28 }}>
+                {[
+                  { icon: '👥', val: gameStats.summary.totalStudents, label: 'PARTICIPANTS', color: 'var(--saffron)', cls: 'stat-card-1' },
+                  { icon: '🏅', val: gameStats.summary.avgScore, label: 'AVG SCORE', color: 'var(--gold)', cls: 'stat-card-2' },
+                  { icon: '🎯', val: gameStats.summary.avgAccuracy + '%', label: 'AVG ACCURACY', color: 'var(--sacred-teal)', cls: 'stat-card-3' },
+                  { icon: '⏱️', val: Math.floor(gameStats.summary.avgTime / 60) + 'm', label: 'AVG TIME', color: 'var(--lotus-pink)', cls: 'stat-card-4' }
+                ].map(s => (
+                  <div key={s.label} className={`stat-card ${s.cls} glass`}>
+                    <div className="stat-icon">{s.icon}</div>
+                    <div className="stat-value" style={{ color: s.color }}>{s.val}</div>
+                    <div className="stat-label">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Results Table */}
+              {gameStats.results.length > 0 ? (
+                <div className="glass-strong" style={{ padding: 24, borderRadius: 24, overflowX: 'auto' }}>
+                  <table className="student-table">
+                    <thead>
+                      <tr><th>Student</th><th>Score</th><th>Accuracy</th><th>Correct/Total</th><th>Time</th><th>Status</th><th>Date</th></tr>
+                    </thead>
+                    <tbody>
+                      {gameStats.results.map((r, i) => {
+                        const pill = getStatusPill(r.accuracy);
+                        return (
+                          <tr key={i}>
+                            <td>
+                              <div style={{ fontWeight: 600 }}>{r.name}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text-faded)' }}>{r.email}</div>
+                            </td>
+                            <td style={{ fontWeight: 700, color: 'var(--gold)' }}>{r.score}</td>
+                            <td style={{ color: r.accuracy >= 75 ? '#86efac' : r.accuracy >= 60 ? 'var(--gold)' : '#fca5a5' }}>{r.accuracy}%</td>
+                            <td>{r.correct}/{r.total}</td>
+                            <td style={{ color: 'var(--text-faded)' }}>{Math.floor(r.time_seconds / 60)}m {r.time_seconds % 60}s</td>
+                            <td><span className={`pill ${pill.cls}`}>{pill.text}</span></td>
+                            <td style={{ color: 'var(--text-faded)', fontSize: 12 }}>{new Date(r.completed_at).toLocaleDateString()}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="glass" style={{ padding: 32, textAlign: 'center', borderRadius: 16, color: 'var(--text-muted)' }}>
+                  No game results yet. Students haven't submitted any results for this game.
+                </div>
+              )}
+            </>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}

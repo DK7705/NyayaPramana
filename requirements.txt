@@ -1,0 +1,70 @@
+Dependencies:
+This project is built using Node.js instead of Python, so dependencies are typically installed via npm using package.json. However, here is the full list of core dependencies used:
+
+- React (v19.2.5) - Frontend UI
+- Express (v5.2.1) - Backend API server
+- Vite (v8.0.9) - Frontend build tool
+- Better-SQLite3 (v12.9.0) - Fast, synchronous SQLite database driver
+- JsonWebToken (v9.0.3) - Session & Auth tokens
+- Bcrypt.js (v3.0.3) - Password hashing
+- UUID (v14.0.0) - Unique ID generation
+- Cors (v2.8.6) - Cross-Origin Resource Sharing middleware
+
+==================================================
+INSTALLATION & RUN COMMANDS
+==================================================
+
+Prerequisites:
+Make sure you have Node.js (v18+) and npm installed on your system.
+
+-- Windows --
+1. Install dependencies:
+   npm install
+
+2. Build the frontend for production:
+   npm run build
+
+3. Start the application (serves both API and frontend):
+   npm run start
+
+4. (Optional) Run in Development Mode:
+   npm run dev:full
+
+
+-- macOS --
+1. Install dependencies:
+   npm install
+
+2. Build the frontend for production:
+   npm run build
+
+3. Start the application (serves both API and frontend):
+   npm run start
+
+4. (Optional) Run in Development Mode:
+   npm run dev:full
+
+
+-- Linux (Ubuntu/Debian/etc) --
+1. Update system map & install build tools (if better-sqlite3 requires compilation):
+   sudo apt-get update
+   sudo apt-get install -y build-essential python3
+
+2. Install dependencies:
+   npm install
+
+3. Build the frontend for production:
+   npm run build
+
+4. Start the application (serves both API and frontend):
+   npm run start
+
+5. (Optional) Run in Development Mode:
+   npm run dev:full
+
+==================================================
+DEPLOYMENT NOTES
+==================================================
+Because this app uses a local SQLite database (`nyaya_pramana.db`), it requires a State-ful environment with a persistent disk.
+- DO NOT deploy to serverless platforms like Vercel or Netlify (the database will reset automatically after a few minutes).
+- PREFERRED PLATFORMS: Render.com (Web Service with persistent disk), Railway.app (with volume), AWS EC2, or DigitalOcean Droplet.
