@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { shuffle } from '../utils/shuffle.js';
+import GuruHintModal from '../components/GuruHintModal.jsx';
+import { api } from '../api.js';
 
 const SCENARIOS = [
   { text: "You look out the window and see raindrops falling.", type: "pratyaksa" },
@@ -36,6 +38,8 @@ export default function ClassifierGame({ gameType, level, user, onComplete, onEx
   const [timeLeft, setTimeLeft] = useState(MAX_TIME);
   const [gameOver, setGameOver] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [showGuruModal, setShowGuruModal] = useState(false);
+  const [hintsUsed, setHintsUsed] = useState(0);
   const timerRef = useRef(null);
   const classResultsRef = useRef([]); // track pramana results for server
 
@@ -80,6 +84,19 @@ export default function ClassifierGame({ gameType, level, user, onComplete, onEx
       }, 1500); // short delay to show final score
     }
   }, [gameOver]);
+
+  const handleHint = async () => {
+    setHintsUsed(h => h + 1);
+    setShowGuruModal(true);
+    setScore(s => Math.max(0, s - 5)); // penalty
+    try {
+      await api.logHint({
+        gameMode: gameType,
+        questionId: qIndex.toString(),
+        hintNumber: 1
+      });
+    } catch (e) {}
+  };
 
   const handleClassify = (selectedType) => {
     if (gameOver) return;
@@ -175,9 +192,23 @@ export default function ClassifierGame({ gameType, level, user, onComplete, onEx
                    {feedback.status === 'correct' ? <span style={{ color: '#86efac', fontSize: 24 }}>+{(10 * Math.min(3, 1 + ((combo-1) * 0.1))).toFixed(0)}</span> : <span style={{ color: '#fca5a5', fontSize: 24 }}>Combo Break!</span>}
                 </div>
               )}
+              
+              <div style={{ marginTop: 24 }}>
+                <button className="btn-outline" onClick={handleHint} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--gold)', padding: '6px 12px' }}>
+                  <span style={{ fontSize: 16 }}>🧘🏽‍♂️</span> Consult the Guru (−5 pts)
+                </button>
+              </div>
            </>
         )}
       </div>
+
+      {showGuruModal && (
+        <GuruHintModal 
+          hint="Are you directly sensing it (Pratyaksa), deducing it from evidence (Anumana), or learning it from someone else's testimony (Sabda)?"
+          guruHint="Consider, dear student... Are you directly sensing it (Pratyaksa), deducing it from evidence (Anumana), or learning it from someone else's testimony (Sabda)?"
+          onClose={() => setShowGuruModal(false)}
+        />
+      )}
     </div>
   );
 }

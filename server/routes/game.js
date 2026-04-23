@@ -67,13 +67,79 @@ router.get('/progress', authenticate, (req, res) => {
   try {
     const progress = db.prepare('SELECT * FROM user_progress WHERE user_id = ?').get(req.user.id);
     const hintsRow = db.prepare('SELECT COALESCE(SUM(hints_used),0) as total FROM game_results WHERE user_id = ?').get(req.user.id);
+    
+    const preTest = db.prepare("SELECT * FROM pre_post_tests WHERE student_id = ? AND test_type = 'pre'").get(req.user.id);
+    const postTest = db.prepare("SELECT * FROM pre_post_tests WHERE student_id = ? AND test_type = 'post'").get(req.user.id);
+
     res.json({
-      completedLevels: JSON.parse(progress.completed_levels),
-      totalScore: progress.total_score,
-      pramanaAccuracy: JSON.parse(progress.pramana_accuracy),
-      accuracy: progress.overall_accuracy || 0,
-      hintsUsed: hintsRow.total || 0
+      completedLevels: progress ? JSON.parse(progress.completed_levels) : [],
+      totalScore: progress ? progress.total_score : 0,
+      pramanaAccuracy: progress ? JSON.parse(progress.pramana_accuracy) : { pratyaksa: 0, anumana: 0, sabda: 0 },
+      accuracy: progress ? (progress.overall_accuracy || 0) : 0,
+      hintsUsed: hintsRow.total || 0,
+      preTestCompleted: !!preTest,
+      preTestScore: preTest ? preTest.score : null,
+      postTestCompleted: !!postTest,
+      postTestScore: postTest ? postTest.score : null,
+      preTestBreakdown: preTest ? JSON.parse(preTest.pramana_breakdown || '{}') : null,
+      postTestBreakdown: postTest ? JSON.parse(postTest.pramana_breakdown || '{}') : null
     });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/prepost', authenticate, (req, res) => {
+  const { testType, score, pramanaBreakdown, responses } = req.body;
+  const id = uuidv4();
+  try {
+    db.prepare(`
+      INSERT INTO pre_post_tests (id, student_id, test_type, score, pramana_breakdown, responses)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(id, req.user.id, testType, score, JSON.stringify(pramanaBreakdown), JSON.stringify(responses));
+    res.json({ message: 'Test saved successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/hint', authenticate, (req, res) => {
+  const { gameMode, questionId, hintNumber } = req.body;
+  const id = uuidv4();
+  try {
+    db.prepare(`
+      INSERT INTO hint_logs (id, student_id, game_mode, question_id, hint_number)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(id, req.user.id, gameMode, questionId, hintNumber);
+    res.json({ message: 'Hint logged successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/journal', authenticate, (req, res) => {
+  const { levelId, pramanaTag, journalEntry } = req.body;
+  const id = uuidv4();
+  try {
+    db.prepare(`
+      INSERT INTO reflection_journal (id, student_id, level_id, pramana_tag, journal_entry)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(id, req.user.id, levelId, pramanaTag, journalEntry);
+    res.json({ message: 'Journal saved successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/journal/:studentId', authenticate, (req, res) => {
+  // Only the student themselves or a teacher can access this.
+  // In a real app, verify if the teacher teaches the student. For now, allow if teacher or same student.
+  if (req.user.role !== 'teacher' && req.user.id !== req.params.studentId) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const logs = db.prepare('SELECT * FROM reflection_journal WHERE student_id = ? ORDER BY timestamp DESC').all(req.params.studentId);
+    res.json(logs);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }

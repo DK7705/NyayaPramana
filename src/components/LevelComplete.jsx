@@ -1,13 +1,42 @@
 import { useState, useEffect } from 'react';
 import Confetti from './Confetti.jsx';
+import ReflectionModal from './ReflectionModal.jsx';
+import { api } from '../api.js';
 
 export default function LevelComplete({ result, onContinue, onRetry }) {
   const [showConfetti, setShowConfetti] = useState(true);
+  const [showReflection, setShowReflection] = useState(false);
+  const [nextAction, setNextAction] = useState(null); // 'continue' or 'retry'
+
   useEffect(() => { setTimeout(() => setShowConfetti(false), 3000); }, []);
 
   const grade = result.accuracy >= 80 ? 'Excellent' : result.accuracy >= 60 ? 'Good' : 'Keep Practicing';
   const emoji = result.accuracy >= 80 ? '🏆' : result.accuracy >= 60 ? '🌟' : '💪';
   const medals = result.accuracy >= 80 ? 3 : result.accuracy >= 60 ? 2 : 1;
+
+  const handleActionClick = (action) => {
+    setNextAction(action);
+    setShowReflection(true);
+  };
+
+  const handleSaveReflection = async (entry) => {
+    setShowReflection(false);
+    try {
+      await api.saveJournal({
+        levelId: result.level?.toString() || 'unknown',
+        pramanaTag: 'general',
+        journalEntry: entry
+      });
+    } catch (e) {
+      console.error('Failed to save reflection');
+    }
+    proceed();
+  };
+
+  const proceed = () => {
+    if (nextAction === 'retry') onRetry();
+    else onContinue();
+  };
 
   return (
     <div className="level-complete">
@@ -45,13 +74,20 @@ export default function LevelComplete({ result, onContinue, onRetry }) {
 
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           {result.accuracy < 60 && (
-            <button className="btn-outline" onClick={onRetry}>↩ Retry Level</button>
+            <button className="btn-outline" onClick={() => handleActionClick('retry')}>↩ Retry Level</button>
           )}
-          <button className="btn-gold" onClick={onContinue}>
+          <button className="btn-gold" onClick={() => handleActionClick('continue')}>
             {result.level < 3 ? '→ Next Level' : '🏠 Dashboard'}
           </button>
         </div>
       </div>
+
+      {showReflection && (
+        <ReflectionModal 
+          onSave={handleSaveReflection} 
+          onSkip={() => proceed()} 
+        />
+      )}
     </div>
   );
 }

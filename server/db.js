@@ -93,6 +93,37 @@ db.exec(`
     FOREIGN KEY (class_id) REFERENCES classes(id),
     FOREIGN KEY (student_id) REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS pre_post_tests (
+    id TEXT PRIMARY KEY,
+    student_id TEXT NOT NULL,
+    test_type TEXT NOT NULL,
+    score INTEGER NOT NULL,
+    pramana_breakdown TEXT,
+    responses TEXT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS hint_logs (
+    id TEXT PRIMARY KEY,
+    student_id TEXT NOT NULL,
+    game_mode TEXT NOT NULL,
+    question_id INTEGER NOT NULL,
+    hint_number INTEGER NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS reflection_journal (
+    id TEXT PRIMARY KEY,
+    student_id TEXT NOT NULL,
+    level_id INTEGER NOT NULL,
+    pramana_tag TEXT,
+    journal_entry TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES users(id)
+  );
 `);
 
 export default db;

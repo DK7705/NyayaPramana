@@ -66,6 +66,8 @@ router.post('/login', async (req, res) => {
 
     // Compute hintsUsed from game_results
     const hintsRow = db.prepare('SELECT COALESCE(SUM(hints_used),0) as total FROM game_results WHERE user_id = ?').get(user.id);
+    const preTest = db.prepare("SELECT * FROM pre_post_tests WHERE student_id = ? AND test_type = 'pre'").get(user.id);
+    const postTest = db.prepare("SELECT * FROM pre_post_tests WHERE student_id = ? AND test_type = 'post'").get(user.id);
 
     res.json({
       token,
@@ -75,8 +77,22 @@ router.post('/login', async (req, res) => {
         totalScore: progress.total_score,
         pramanaAccuracy: JSON.parse(progress.pramana_accuracy),
         accuracy: progress.overall_accuracy || 0,
-        hintsUsed: hintsRow.total || 0
-      } : null
+        hintsUsed: hintsRow.total || 0,
+        preTestCompleted: !!preTest,
+        preTestScore: preTest ? preTest.score : null,
+        postTestCompleted: !!postTest,
+        postTestScore: postTest ? postTest.score : null
+      } : {
+        completedLevels: [],
+        totalScore: 0,
+        pramanaAccuracy: { pratyaksa: 0, anumana: 0, sabda: 0 },
+        accuracy: 0,
+        hintsUsed: hintsRow.total || 0,
+        preTestCompleted: !!preTest,
+        preTestScore: preTest ? preTest.score : null,
+        postTestCompleted: !!postTest,
+        postTestScore: postTest ? postTest.score : null
+      }
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -101,6 +117,8 @@ router.get('/session', authenticate, (req, res) => {
     const user = db.prepare('SELECT id, name, email, role, institution FROM users WHERE id = ?').get(req.user.id);
     const progress = db.prepare('SELECT * FROM user_progress WHERE user_id = ?').get(user.id);
     const hintsRow = db.prepare('SELECT COALESCE(SUM(hints_used),0) as total FROM game_results WHERE user_id = ?').get(user.id);
+    const preTest = db.prepare("SELECT * FROM pre_post_tests WHERE student_id = ? AND test_type = 'pre'").get(user.id);
+    const postTest = db.prepare("SELECT * FROM pre_post_tests WHERE student_id = ? AND test_type = 'post'").get(user.id);
 
     res.json({
       user,
@@ -109,8 +127,22 @@ router.get('/session', authenticate, (req, res) => {
         totalScore: progress.total_score,
         pramanaAccuracy: JSON.parse(progress.pramana_accuracy),
         accuracy: progress.overall_accuracy || 0,
-        hintsUsed: hintsRow.total || 0
-      } : null
+        hintsUsed: hintsRow.total || 0,
+        preTestCompleted: !!preTest,
+        preTestScore: preTest ? preTest.score : null,
+        postTestCompleted: !!postTest,
+        postTestScore: postTest ? postTest.score : null
+      } : {
+        completedLevels: [],
+        totalScore: 0,
+        pramanaAccuracy: { pratyaksa: 0, anumana: 0, sabda: 0 },
+        accuracy: 0,
+        hintsUsed: hintsRow.total || 0,
+        preTestCompleted: !!preTest,
+        preTestScore: preTest ? preTest.score : null,
+        postTestCompleted: !!postTest,
+        postTestScore: postTest ? postTest.score : null
+      }
     });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });

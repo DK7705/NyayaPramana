@@ -9,6 +9,9 @@ export default function ClassData({ user, notify }) {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [journalModalData, setJournalModalData] = useState(null);
+  const [journals, setJournals] = useState([]);
+  const [journalLoading, setJournalLoading] = useState(false);
 
   useEffect(() => { loadClasses(); }, []);
 
@@ -59,6 +62,20 @@ export default function ClassData({ user, notify }) {
     if (accuracy >= 80) return { cls: 'pill-green', text: '✓ Excellent' };
     if (accuracy >= 60) return { cls: 'pill-yellow', text: '◎ Good' };
     return { cls: 'pill-red', text: '⚠ Needs Help' };
+  }
+
+  async function openJournalModal(student) {
+    setJournalModalData(student);
+    setJournalLoading(true);
+    setJournals([]);
+    try {
+      const data = await api.getJournal(student.id);
+      setJournals(data);
+    } catch (e) {
+      notify('Failed to load journals.', 'error');
+    } finally {
+      setJournalLoading(false);
+    }
   }
 
   function downloadPDF() {
@@ -176,6 +193,76 @@ export default function ClassData({ user, notify }) {
     setTimeout(() => { printWindow.print(); }, 500);
   }
 
+  async function downloadEffectivenessReport() {
+    if (!selectedClassId) return;
+    try {
+      const data = await api.getEffectiveness(selectedClassId);
+      const rowsHTML = data.map(r => {
+        const delta = r.post_test_score - r.pre_test_score;
+        const deltaDisplay = delta > 0 ? "+" + delta : delta;
+        const deltaClass = delta > 0 ? 'positive' : delta < 0 ? 'negative' : 'neutral';
+        return "<tr>" +
+          "<td><strong>" + r.student_name + "</strong></td>" +
+          "<td>" + r.pre_test_score + "%</td>" +
+          "<td>" + (r.post_test_score !== null ? r.post_test_score + "%" : "<em>Pending</em>") + "</td>" +
+          "<td class='" + (r.post_test_score !== null ? deltaClass : "neutral") + "'>" +
+            (r.post_test_score !== null ? deltaDisplay + "%" : "N/A") +
+          "</td>" +
+        "</tr>";
+      }).join('');
+
+      const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Class Effectiveness Report</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #1a1a2e; }
+    .header { text-align: center; margin-bottom: 32px; border-bottom: 3px solid #10b981; padding-bottom: 20px; }
+    .header h1 { font-size: 28px; color: #10b981; }
+    .header .meta { margin-top: 8px; font-size: 13px; color: #777; }
+    table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+    th { background: #f0fdf4; color: #166534; padding: 12px; text-align: left; border-bottom: 2px solid #bbf7d0; font-size: 12px; text-transform: uppercase; }
+    td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+    .positive { color: #16a34a; font-weight: bold; }
+    .negative { color: #dc2626; font-weight: bold; }
+    .neutral { color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Class Effectiveness Report</h1>
+    <div class="meta">Nyaya Pramana Platform | Generated: ${new Date().toLocaleString()}</div>
+  </div>
+  <p style="margin-bottom: 16px; font-size: 15px; color: #475569;">
+    This report compares students' pre-test base scores before playing any games to their post-test scores after completing at least 10 levels.
+  </p>
+  <table>
+    <thead>
+      <tr><th>Student</th><th>Pre-Test Score</th><th>Post-Test Score</th><th>Improvement</th></tr>
+    </thead>
+    <tbody>
+      ${rowsHTML}
+    </tbody>
+  </table>
+  <div style="margin-top: 40px; text-align: center; color: #94a3b8; font-size: 12px;">
+    End of Report
+  </div>
+</body>
+</html>`;
+      const blob = new Blob([html], { type: 'text/html' });
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(html);
+      printWindow.document.close();
+      setTimeout(() => { printWindow.print(); }, 500);
+    } catch (e) {
+      console.error(e);
+      notify('Failed to load effectiveness data', 'error');
+    }
+  }
+
   if (loading) {
     return <div className="dashboard"><div style={{ textAlign: 'center', padding: 60, color: 'var(--gold)' }}>Loading class data...</div></div>;
   }
@@ -190,11 +277,16 @@ export default function ClassData({ user, notify }) {
             Data segregated by class, game, and quiz
           </div>
         </div>
-        <div className="dashboard-header-right">
+        <div className="dashboard-header-right" style={{ display: 'flex', gap: 12 }}>
           {(classDetail || gameStats) && (
-            <button className="btn-primary" onClick={downloadPDF} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              📄 Download PDF Report
-            </button>
+            <>
+              <button className="btn-outline" onClick={downloadEffectivenessReport} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', fontSize: 13, color: 'var(--sacred-teal)' }}>
+                📈 Effectiveness Report
+              </button>
+              <button className="btn-primary" onClick={downloadPDF} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                📄 Download PDF Report
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -254,7 +346,7 @@ export default function ClassData({ user, notify }) {
                     <thead>
                       <tr>
                         <th>Student</th><th>Score</th><th>Accuracy</th><th>Levels</th>
-                        <th>Hints</th><th>Avg Time</th><th>Status</th>
+                        <th>Hints</th><th>Avg Time</th><th>Status</th><th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -280,6 +372,11 @@ export default function ClassData({ user, notify }) {
                             <td style={{ color: 'var(--text-muted)' }}>{s.hints_used || 0}</td>
                             <td style={{ color: 'var(--text-faded)' }}>{Math.round(s.avg_time / 60)}m</td>
                             <td><span className={`pill ${pill.cls}`}>{pill.text}</span></td>
+                            <td>
+                              <button className="btn-outline" style={{ fontSize: 11, padding: '4px 8px' }} onClick={() => openJournalModal(s)}>
+                                📔 Journals
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}
@@ -350,6 +447,38 @@ export default function ClassData({ user, notify }) {
             </>
           ) : null}
         </>
+      )}
+
+      {journalModalData && (
+        <div className="modal-overlay" style={{ zIndex: 10000 }}>
+          <div className="glass-strong" style={{ padding: 32, borderRadius: 20, maxWidth: 600, width: '90%', position: 'relative', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <h2 style={{ color: 'var(--gold)', marginBottom: 8 }}>{journalModalData.name}'s Journals</h2>
+            <p style={{ color: 'var(--text-faded)', fontSize: 13, marginBottom: 20 }}>Reviewing student's meta-reflections</p>
+
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {journalLoading ? (
+                <div style={{ color: 'var(--gold)', textAlign: 'center', padding: 20 }}>Loading...</div>
+              ) : journals.length > 0 ? (
+                journals.map(j => (
+                  <div key={j.id} className="glass" style={{ padding: 16, borderRadius: 12 }}>
+                    <div style={{ fontSize: 12, color: 'var(--gold)', marginBottom: 8, fontWeight: 'bold' }}>
+                      LEVEL {j.level_id} • {new Date(j.timestamp).toLocaleDateString()}
+                    </div>
+                    <div style={{ fontSize: 14, color: 'var(--text-bright)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                      "{j.journal_entry}"
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 20 }}>No journals found.</div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
+              <button className="btn-primary" onClick={() => setJournalModalData(null)}>Close</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -20,6 +20,8 @@ import ClassData from './components/ClassData.jsx';
 import TeacherToolkit from './components/TeacherToolkit.jsx';
 import TeachersPage from './components/TeachersPage.jsx';
 import JoinGame from './components/JoinGame.jsx';
+import FrameworkPage from './components/FrameworkPage.jsx';
+import DocsPage from './components/DocsPage.jsx';
 
 // Games
 import GameEngine from './games/GameEngine.jsx';
@@ -151,6 +153,9 @@ export default function App() {
                 setPage(p);
               }} onLogout={handleLogout} />
             )}
+            
+            {page === 'framework' && <FrameworkPage />}
+            {page === 'docs' && <DocsPage setPage={setPage} />}
 
             {/* ─── TEACHER PAGES ─── */}
             {user.role === 'teacher' && (
@@ -179,6 +184,7 @@ export default function App() {
                     progress={progress}
                     onStartLevel={handleStartLevel}
                     onViewLeaderboard={() => setPage('leaderboard')}
+                    onPrePostComplete={reloadProgress}
                   />
                 )}
                 {page === 'leaderboard' && (

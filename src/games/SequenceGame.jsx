@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { shuffle } from '../utils/shuffle.js';
+import GuruHintModal from '../components/GuruHintModal.jsx';
+import { api } from '../api.js';
 
 const SYLLOGISMS = [
   {
@@ -108,6 +110,19 @@ export default function SequenceGame({ gameType, level, user, onComplete, onExit
     }
   };
 
+  const handleHint = async () => {
+    setHintsUsed(h => h + 1);
+    setShowGuruModal(true);
+    setScore(s => Math.max(0, s - 10)); // penalty
+    try {
+      await api.logHint({
+        gameMode: gameType,
+        questionId: questions[qIndex].id.toString(),
+        hintNumber: 1
+      });
+    } catch (e) {}
+  };
+
   if (!questions || questions.length === 0) return null;
 
   return (
@@ -132,6 +147,10 @@ export default function SequenceGame({ gameType, level, user, onComplete, onExit
       <div style={{ width: '100%', maxWidth: '780px' }}>
          <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: 20, textAlign: 'center', fontSize: 16 }}>
            Construct the correct 5-membered Nyaya syllogism by selecting the statements in order.
+           <br/>
+           <button className="btn-outline" onClick={handleHint} style={{ marginTop: 12, padding: '4px 12px', fontSize: 14 }}>
+             🧘🏽‍♂️ Consult the Guru (−10 pts)
+           </button>
          </div>
 
          {/* Sequence Area */}
@@ -201,6 +220,14 @@ export default function SequenceGame({ gameType, level, user, onComplete, onExit
            </button>
         )}
       </div>
+
+      {showGuruModal && (
+        <GuruHintModal 
+          hint="The Nyaya order is: Hypothesis (Pratijna) -> Reason (Hetu) -> Example (Udaharana) -> Application (Upanaya) -> Conclusion (Nigamana)."
+          guruHint="Consider, dear student... Establish the hypothesis first, state the reason, provide a universal example, tie it to the present case, and finalize your conclusion."
+          onClose={() => setShowGuruModal(false)}
+        />
+      )}
     </div>
   );
 }

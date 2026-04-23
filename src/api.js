@@ -51,8 +51,15 @@ export const api = {
   saveResult: (data) => request('/game/result', { method: 'POST', body: JSON.stringify(data) }),
   getProgress: () => request('/game/progress'),
 
+  // Game Additions
+  savePrePostTest: (data) => request('/game/prepost', { method: 'POST', body: JSON.stringify(data) }),
+  logHint: (data) => request('/game/hint', { method: 'POST', body: JSON.stringify(data) }),
+  saveJournal: (data) => request('/game/journal', { method: 'POST', body: JSON.stringify(data) }),
+  getJournal: (studentId) => request(`/game/journal/${studentId}`),
+
   // Leaderboard
   getLeaderboard: () => request('/leaderboard'),
+  getClassLeaderboard: (classId) => request(`/leaderboard/class/${classId}`),
 
   // Class Management (Teacher)
   createClass: (data) => request('/class/create', { method: 'POST', body: JSON.stringify(data) }),
@@ -62,6 +69,8 @@ export const api = {
   approveRequest: (data) => request('/class/approve', { method: 'POST', body: JSON.stringify(data) }),
   getAllStudents: () => request('/class/all-students'),
   getGameStats: (classId) => request(`/class/game-stats/${classId}`),
+  getEffectiveness: (classId) => request(`/class/effectiveness/${classId}`),
+  getResearchExport: () => request('/class/research-export'),
 
   // Class Management (Student)
   joinClass: (data) => request('/class/join', { method: 'POST', body: JSON.stringify(data) }),

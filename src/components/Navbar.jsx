@@ -6,6 +6,8 @@ export default function Navbar({ user, page, setPage, onLogout }) {
     { id: 'leaderboard', label: '🏆 Ranks' },
     { id: 'teachers', label: '👨‍🏫 Teachers' },
     { id: 'joinGame', label: '🎮 Join Game' },
+    { id: 'framework', label: '🧠 Framework' },
+    { id: 'docs', label: '📖 Docs' },
   ];
 
   const teacherTabs = [
@@ -13,6 +15,8 @@ export default function Navbar({ user, page, setPage, onLogout }) {
     { id: 'createGame', label: '🎮 Create Game' },
     { id: 'classData', label: '👥 Class Data' },
     { id: 'toolkit', label: '🧰 Toolkit' },
+    { id: 'framework', label: '🧠 Framework' },
+    { id: 'docs', label: '📖 Docs' },
   ];
 
   const tabs = user.role === 'teacher' ? teacherTabs : studentTabs;
@@ -32,7 +36,7 @@ export default function Navbar({ user, page, setPage, onLogout }) {
             {t.label}
           </button>
         ))}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8, whiteSpace: 'nowrap' }}>
           <div className="nav-role-pill" style={{
             fontSize: 10, padding: '3px 10px', borderRadius: 50,
             background: user.role === 'teacher' ? 'rgba(10,191,188,0.15)' : 'rgba(247,201,72,0.15)',

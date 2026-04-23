@@ -71,6 +71,34 @@ export default function TeacherDashboard({ user, onLogout }) {
     return result;
   })();
 
+  const handleExportCSV = async () => {
+    try {
+      const data = await api.getResearchExport();
+      if (!data || data.length === 0) {
+        alert('No data available to export.');
+        return;
+      }
+      
+      const keys = Object.keys(data[0]);
+      const csvLines = [keys.join(',')];
+      data.forEach(row => {
+        csvLines.push(keys.map(k => `"${(row[k] || '').toString().replace(/"/g, '""')}"`).join(','));
+      });
+      
+      const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `nyaya_research_export_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to generate export');
+    }
+  };
+
   return (
     <div className="dashboard">
       <div className="dashboard-header">
@@ -81,8 +109,12 @@ export default function TeacherDashboard({ user, onLogout }) {
             {user.institution || 'IKS Research Institute'} • {totalStudents} Student{totalStudents !== 1 ? 's' : ''} Enrolled
           </div>
         </div>
-        <div className="dashboard-header-right">
-          <div className="wisdom-quote-inline">
+        <div className="dashboard-header-right" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
+          <button className="btn-outline" onClick={handleExportCSV} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 16px', fontSize: 13, color: 'var(--sacred-teal)' }}>
+            📊 Export Research Data (CSV)
+          </button>
+          
+          <div className="wisdom-quote-inline" style={{ marginTop: 0 }}>
             <div className="wisdom-label">📿 Nyaya Wisdom</div>
             <div className="wisdom-sanskrit">
               "प्रत्यक्षानुमानोपमानशब्दाः प्रमाणानि"
