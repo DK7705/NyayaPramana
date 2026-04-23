@@ -1,10 +1,85 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Chart as ChartJS,
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Radar } from 'react-chartjs-2';
 import GameHub from './GameHub.jsx';
+import PrePostTest from './PrePostTest.jsx';
+import { api } from '../api.js';
+ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
-export default function StudentDashboard({ user, progress, onStartLevel, onViewLeaderboard }) {
-  const completedLevel = progress?.completedLevels || [];
-  const totalScore = progress?.totalScore || 0;
-  const accuracy = progress?.accuracy || 0;
-  const pramanaStats = progress?.pramanaAccuracy || { pratyaksa: 0, anumana: 0, sabda: 0 };
+export default function StudentDashboard({ user, progress, onStartLevel, onViewLeaderboard, onPrePostComplete }) {
+  if (!progress) return null;
+
+  const completedLevels = progress.completedLevels || [];
+  const isFirstTimeStudent = completedLevels.length === 0;
+
+  // 1. Force Pre-Test if not completed AND it's a first-time student
+  if (!progress.preTestCompleted && isFirstTimeStudent) {
+    return <PrePostTest user={user} type="pre" onComplete={onPrePostComplete} />;}
+  const totalScore = progress.totalScore || 0;
+  const accuracy = progress.accuracy || 0;
+  const pramanaStats = progress.pramanaAccuracy || { pratyaksa: 0, anumana: 0, sabda: 0 };
+  
+  // Fake some cognitive skills based on pramana stats to fill 5 dimensions
+  const [journals, setJournals] = useState([]);
+
+  useEffect(() => {
+    if (user?.id) {
+      api.getJournal(user.id)
+        .then(res => setJournals(res))
+        .catch(err => console.error(err));
+    }
+  }, [user?.id]);
+
+  const radarData = {
+    labels: ['Observation', 'Inference', 'Reasoning', 'Memory', 'Source Evaluation'],
+    datasets: [
+      {
+        label: 'Cognitive Skills Mastery (%)',
+        data: [
+          pramanaStats.pratyaksa || 10,
+          pramanaStats.anumana || 10,
+          Math.min(100, (pramanaStats.anumana || 10) + 10),
+          Math.min(100, (pramanaStats.pratyaksa || 10) + 15),
+          pramanaStats.sabda || 10
+        ],
+        backgroundColor: 'rgba(255, 153, 51, 0.2)',
+        borderColor: '#FF9933',
+        pointBackgroundColor: '#FF9933',
+        borderWidth: 2,
+      },
+    ],
+  };
+
+  const radarOptions = {
+    scales: {
+      r: {
+        angleLines: { color: 'rgba(255,255,255,0.1)' },
+        grid: { color: 'rgba(255,255,255,0.1)' },
+        pointLabels: { color: '#FFFFF0', font: { size: 11 } },
+        ticks: { backdropColor: 'transparent', color: 'rgba(255,255,255,0.5)', min: 0, max: 100, stepSize: 25, font: { size: 9 }, display: false }
+      }
+    },
+    plugins: {
+      legend: { labels: { color: '#FFFFF0', font: { size: 12 }, padding: 16 } }
+    },
+    maintainAspectRatio: false,
+    layout: { padding: 8 }
+  };
+
+  // Check if we should prompt post test (all 10 levels done or explicit trigger)
+  // We'll show Post-test button if 10 levels done and not completed.
+  const allLevelsDone = completedLevels.length >= 10;
+  if (allLevelsDone && !progress.postTestCompleted) {
+    return <PrePostTest user={user} type="post" onComplete={onPrePostComplete} />;
+  }
 
   return (
     <div className="dashboard">
@@ -13,7 +88,7 @@ export default function StudentDashboard({ user, progress, onStartLevel, onViewL
           <div className="welcome-text">✦ Welcome Back</div>
           <div className="dashboard-title">{user.name}</div>
           <div style={{ fontSize: 13, color: 'var(--text-faded)', marginTop: 4 }}>
-            {completedLevel.length === 0 ? 'Begin your Nyaya journey today' : `${completedLevel.length} level${completedLevel.length > 1 ? 's' : ''} completed • Pramana Scholar`}
+            {completedLevels.length === 0 ? 'Begin your Nyaya journey today' : `${completedLevels.length} level${completedLevels.length > 1 ? 's' : ''} completed • Pramana Scholar`}
           </div>
         </div>
         <div className="dashboard-header-right">
@@ -23,7 +98,7 @@ export default function StudentDashboard({ user, progress, onStartLevel, onViewL
               "प्रत्यक्षानुमानोपमानशब्दाः प्रमाणानि"
             </div>
             <div className="wisdom-english">
-              "Perception, inference, comparison, and verbal testimony are the means of valid knowledge." — Nyaya Sutra 1.1.3
+              "Perception, inference... are the means of valid knowledge."
             </div>
           </div>
           {totalScore > 0 && (
@@ -31,6 +106,31 @@ export default function StudentDashboard({ user, progress, onStartLevel, onViewL
           )}
         </div>
       </div>
+
+      {progress.postTestCompleted && progress.preTestScore !== null && progress.postTestScore !== null && (
+        <div className="glass-strong" style={{ padding: 24, borderRadius: 20, marginBottom: 28, border: '1px solid var(--saffron)' }}>
+          <h3 style={{ color: 'var(--saffron)', marginBottom: 12 }}>🎓 Final Assessment Complete!</h3>
+          <p style={{ marginBottom: 16 }}>
+            You scored {progress.preTestScore} on the Pre-Test and {progress.postTestScore} on the Post-Test.
+            {progress.postTestScore > progress.preTestScore ? ' Amazing improvement!' : ' Good effort!'}
+          </p>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            {['pratyaksa', 'anumana', 'sabda'].map(p => {
+              const pre = progress.preTestBreakdown?.[p] || 0;
+              const post = progress.postTestBreakdown?.[p] || 0;
+              const delta = post - pre;
+              return (
+                <div key={p} className="glass" style={{ padding: 12, borderRadius: 8, flex: 1, minWidth: 150 }}>
+                  <div style={{ textTransform: 'capitalize', color: 'var(--text-faded)', fontSize: 13 }}>{p}</div>
+                  <div style={{ fontSize: 24, fontWeight: 'bold', color: delta > 0 ? '#86efac' : 'var(--gold)' }}>
+                    {delta > 0 ? '+' : ''}{delta} Points
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="stats-grid">
         <div className="stat-card stat-card-1 glass">
@@ -45,7 +145,7 @@ export default function StudentDashboard({ user, progress, onStartLevel, onViewL
         </div>
         <div className="stat-card stat-card-3 glass">
           <div className="stat-icon">⚡</div>
-          <div className="stat-value" style={{ color: 'var(--sacred-teal)' }}>{completedLevel.length}/10</div>
+          <div className="stat-value" style={{ color: 'var(--sacred-teal)' }}>{completedLevels.length}/10</div>
           <div className="stat-label">GAMES WON</div>
         </div>
         <div className="stat-card stat-card-4 glass">
@@ -55,30 +155,65 @@ export default function StudentDashboard({ user, progress, onStartLevel, onViewL
         </div>
       </div>
 
-      {completedLevel.length > 0 && (
-        <div className="glass" style={{ padding: 24, borderRadius: 20, marginBottom: 28 }}>
-          <div className="section-title" style={{ marginBottom: 16 }}>📊 Pramana Skill Breakdown</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 20 }}>
-            {[
-              { key: 'pratyaksa', label: 'Pratyaksa (Observation)', color: 'var(--saffron)', val: pramanaStats.pratyaksa || 0 },
-              { key: 'anumana', label: 'Anumana (Inference)', color: 'var(--gold)', val: pramanaStats.anumana || 0 },
-              { key: 'sabda', label: 'Sabda (Testimony)', color: 'var(--sacred-teal)', val: pramanaStats.sabda || 0 },
-            ].map(p => (
-              <div key={p.key}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 13 }}>{p.label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: p.color }}>{p.val}%</span>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, marginBottom: 28 }}>
+        {completedLevels.length > 0 && (
+          <div className="glass" style={{ padding: 24, borderRadius: 20 }}>
+            <div className="section-title" style={{ marginBottom: 16 }}>📊 Pramana Skill Breakdown</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {[
+                { key: 'pratyaksa', label: 'Pratyaksa (Observation)', color: 'var(--saffron)', val: pramanaStats.pratyaksa || 0 },
+                { key: 'anumana', label: 'Anumana (Inference)', color: 'var(--gold)', val: pramanaStats.anumana || 0 },
+                { key: 'sabda', label: 'Sabda (Testimony)', color: 'var(--sacred-teal)', val: pramanaStats.sabda || 0 },
+              ].map(p => (
+                <div key={p.key}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 13 }}>{p.label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: p.color }}>{p.val}%</span>
+                  </div>
+                  <div className="progress-bar-bg" style={{ height: 8 }}>
+                    <div className="progress-bar-fill" style={{ width: `${p.val}%`, background: p.color }} />
+                  </div>
                 </div>
-                <div className="progress-bar-bg" style={{ height: 8 }}>
-                  <div className="progress-bar-fill" style={{ width: `${p.val}%`, background: p.color }} />
+              ))}
+            </div>
+            <div style={{ marginTop: 24, fontSize: 12, color: 'var(--text-faded)', background: 'rgba(255,255,255,0.03)', padding: '14px 16px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)' }}>
+              <span style={{ color: 'var(--gold)', marginRight: 6 }}>💡</span>
+              Practice active game modes to build up weaker Pramana proficiencies and achieve a balanced cognitive mastery!
+            </div>
+          </div>
+        )}
+        
+        {completedLevels.length > 0 && (
+          <div className="glass" style={{ padding: 24, borderRadius: 20, display: 'flex', flexDirection: 'column' }}>
+            <div className="section-title" style={{ marginBottom: 16 }}>🧠 Cognitive Profile</div>
+            <div style={{ flex: 1, minHeight: 280, position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}>
+                <Radar data={radarData} options={radarOptions} />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <GameHub progress={progress} onStartGame={onStartLevel} />
+
+      {journals.length > 0 && (
+        <div className="glass" style={{ padding: 24, borderRadius: 20, marginTop: 24, gridColumn: '1 / -1' }}>
+          <div className="section-title" style={{ marginBottom: 16 }}>📖 Your Reflection Journal</div>
+          <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+            {journals.map(j => (
+              <div key={j.id} className="glass-strong" style={{ padding: 16, borderRadius: 12 }}>
+                <div style={{ fontSize: 12, color: 'var(--gold)', marginBottom: 8, fontWeight: 'bold' }}>
+                  LEVEL {j.level_id} • {new Date(j.timestamp).toLocaleDateString()}
+                </div>
+                <div style={{ fontSize: 14, color: 'var(--text-bright)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                  "{j.journal_entry}"
                 </div>
               </div>
             ))}
           </div>
         </div>
       )}
-
-      <GameHub progress={progress} onStartGame={onStartLevel} />
     </div>
   );
 }
