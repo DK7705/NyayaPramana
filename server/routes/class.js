@@ -296,16 +296,16 @@ router.post('/join', authenticate, (req, res) => {
     }
 
     const id = uuidv4();
-    db.prepare('INSERT INTO class_enrollments (id, class_id, student_id, status) VALUES (?, ?, ?, ?)').run(id, cls.id, req.user.id, 'pending');
+    db.prepare('INSERT INTO class_enrollments (id, class_id, student_id, status) VALUES (?, ?, ?, ?)').run(id, cls.id, req.user.id, 'approved');
 
     // Get teacher name
     const teacher = db.prepare('SELECT name FROM users WHERE id = ?').get(cls.teacher_id);
 
     res.status(201).json({
-      message: 'Join request sent! Waiting for teacher approval.',
+      message: 'Successfully joined game!',
       className: cls.name,
       teacherName: teacher?.name || 'Unknown',
-      status: 'pending'
+      status: 'approved'
     });
   } catch (error) {
     console.error('Join class error:', error);
@@ -404,6 +404,87 @@ router.post('/submit-result', authenticate, (req, res) => {
     res.json({ message: 'Result submitted successfully' });
   } catch (error) {
     console.error('Submit class result error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get effectiveness report data
+router.get('/effectiveness/:classId', authenticate, (req, res) => {
+  if (req.user.role !== 'teacher' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const cls = db.prepare('SELECT * FROM classes WHERE id = ? AND teacher_id = ?').get(req.params.classId, req.user.id);
+    if (!cls) {
+      return res.status(404).json({ error: 'Class not found' });
+    }
+
+    // Get all students in the class
+    const students = db.prepare(`
+      SELECT student_id FROM class_enrollments WHERE class_id = ? AND status = 'approved'
+    `).all(req.params.classId);
+    
+    if (students.length === 0) {
+      return res.json({ classInfo: cls, data: [] });
+    }
+
+    const sIds = students.map(s => `'${s.student_id}'`).join(',');
+    
+    const prePost = db.prepare(`SELECT * FROM pre_post_tests WHERE student_id IN (${sIds})`).all();
+    const gameStats = db.prepare(`SELECT student_id, AVG(time_seconds) as avg_t, SUM(hints_used) as hints_used, COUNT(*) as attempts FROM game_results WHERE user_id IN (${sIds}) GROUP BY user_id`).all();
+
+    res.json({ classInfo: cls, prePost, gameStats });
+  } catch (error) {
+    console.error('Effectiveness route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Download research export
+router.get('/research-export', authenticate, (req, res) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'researcher') {
+    return res.status(403).json({ error: 'Only researchers/admins can export pilot data' });
+  }
+  try {
+    // Generate an anonymized CSV view of the data. 
+    // Data needed: anon_id, pramana_category, game_mode, accuracy, avg_time_per_question,
+    // total_attempts, hints_used, pre_test_score, post_test_score, improvement_delta,
+    // session_date, journal_entry
+    const data = db.prepare(`
+      SELECT 
+        u.id as raw_id,
+        gr.pramana_data, gr.game_type as game_mode, gr.accuracy, gr.time_seconds, gr.hints_used, gr.completed_at as session_date,
+        rj.journal_entry,
+        (SELECT score FROM pre_post_tests WHERE student_id = u.id AND test_type = 'pre' ORDER BY timestamp DESC LIMIT 1) as pre_test_score,
+        (SELECT score FROM pre_post_tests WHERE student_id = u.id AND test_type = 'post' ORDER BY timestamp DESC LIMIT 1) as post_test_score
+      FROM users u
+      LEFT JOIN game_results gr ON u.id = gr.user_id
+      LEFT JOIN reflection_journal rj ON u.id = rj.student_id
+    `).all();
+
+    // In a real implementation we would convert this to CSV using a server library, 
+    // but the frontend can easily generate CSV from JSON if we return array of objects.
+    // Hash the ID using simple truncation for anonymization or proper hash.
+    const anonymized = data.map(row => {
+      const pData = JSON.parse(row.pramana_data || '[]');
+      const avgPAcc = pData.length ? Math.round(pData.reduce((acc, p) => acc + (p.correct ? 1 : 0), 0) / pData.length * 100) : row.accuracy;
+      return {
+        anon_id: row.raw_id.substring(0, 8), // basic hash stub
+        game_mode: row.game_mode,
+        accuracy: row.accuracy,
+        time_seconds: row.time_seconds,
+        hints_used: row.hints_used,
+        pre_test_score: row.pre_test_score,
+        post_test_score: row.post_test_score,
+        improvement_delta: row.post_test_score && row.pre_test_score ? (row.post_test_score - row.pre_test_score) : null,
+        session_date: row.session_date,
+        journal_entry: row.journal_entry
+      };
+    });
+    res.json(anonymized);
+  } catch (error) {
+    console.error('Export route error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

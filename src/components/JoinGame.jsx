@@ -41,17 +41,15 @@ export default function JoinGame({ user, notify, onPlayGame }) {
   }
 
   const approved = enrollments.filter(e => e.status === 'approved');
-  const pending = enrollments.filter(e => e.status === 'pending');
-  const rejected = enrollments.filter(e => e.status === 'rejected');
 
   return (
     <div className="dashboard">
       <div className="dashboard-header">
         <div className="dashboard-header-left">
           <div className="welcome-text">✦ Join a Game</div>
-          <div className="dashboard-title">Enter Class Code</div>
+          <div className="dashboard-title">Enter Game Code</div>
           <div style={{ fontSize: 13, color: 'var(--text-faded)', marginTop: 4 }}>
-            Get a code from your teacher to join their class, quiz, or game
+            Get a code from your teacher to join their quiz or game
           </div>
         </div>
       </div>
@@ -59,7 +57,7 @@ export default function JoinGame({ user, notify, onPlayGame }) {
       {/* Code Input */}
       <div className="glass-strong" style={{ padding: 32, borderRadius: 24, marginBottom: 28, textAlign: 'center' }}>
         <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 16 }}>
-          Enter the 6-character class code shared by your teacher
+          Enter the 6-character game code shared by your teacher
         </div>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <input
@@ -83,13 +81,13 @@ export default function JoinGame({ user, notify, onPlayGame }) {
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 40, color: 'var(--gold)' }}>Loading your classes...</div>
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--gold)' }}>Loading your games...</div>
       ) : (
         <>
           {/* Approved Enrollments */}
           {approved.length > 0 && (
             <div style={{ marginBottom: 28 }}>
-              <div className="section-title">✅ Active Classes ({approved.length})</div>
+              <div className="section-title">✅ Joined Games/Quizzes ({approved.length})</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
                 {approved.map(e => (
                   <div key={e.enrollment_id} className="glass-strong" style={{
@@ -137,51 +135,11 @@ export default function JoinGame({ user, notify, onPlayGame }) {
             </div>
           )}
 
-          {/* Pending */}
-          {pending.length > 0 && (
-            <div style={{ marginBottom: 28 }}>
-              <div className="section-title">⏳ Pending Requests ({pending.length})</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
-                {pending.map(e => (
-                  <div key={e.enrollment_id} className="glass" style={{ padding: 18, borderRadius: 16 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 600 }}>{e.class_name}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-faded)' }}>by {e.teacher_name}</div>
-                      </div>
-                      <span className="pill pill-yellow">⏳ Pending</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Rejected */}
-          {rejected.length > 0 && (
-            <div style={{ marginBottom: 28 }}>
-              <div className="section-title">❌ Rejected ({rejected.length})</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
-                {rejected.map(e => (
-                  <div key={e.enrollment_id} className="glass" style={{ padding: 18, borderRadius: 16, opacity: 0.6 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 600 }}>{e.class_name}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-faded)' }}>by {e.teacher_name}</div>
-                      </div>
-                      <span className="pill pill-red">✕ Rejected</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {enrollments.length === 0 && (
             <div className="glass" style={{ padding: 40, textAlign: 'center', borderRadius: 20, color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>📝</div>
-              <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 6 }}>No classes joined yet</div>
-              <div style={{ fontSize: 13, color: 'var(--text-faded)' }}>Enter a class code above to join your first class!</div>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🎮</div>
+              <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 6 }}>No games joined yet</div>
+              <div style={{ fontSize: 13, color: 'var(--text-faded)' }}>Enter a game code above to play!</div>
             </div>
           )}
         </>
