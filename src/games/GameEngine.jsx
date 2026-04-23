@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { shuffle } from '../utils/shuffle.js';
 import { ALL_QUESTIONS } from '../data/questions.js';
+import GuruHintModal from '../components/GuruHintModal.jsx';
 
 export default function GameEngine({ level, user, onComplete, onExit, customQuestions }) {
   const [questions] = useState(() => {
@@ -26,6 +27,7 @@ export default function GameEngine({ level, user, onComplete, onExit, customQues
   const [correct, setCorrect] = useState(0);
   const [results, setResults] = useState([]);
   const [showHint, setShowHint] = useState(false);
+  const [showGuruModal, setShowGuruModal] = useState(false);
   const [hintsUsed, setHintsUsed] = useState(0);
   // Scale timer: more time for smaller pools since each question matters more
   const maxTime = questions.length <= 5 ? 35 : level === 1 ? 30 : level === 2 ? 25 : 20;
@@ -116,10 +118,11 @@ export default function GameEngine({ level, user, onComplete, onExit, customQues
   }
 
   function handleHint() {
-    if (!showHint && !answered) {
+    if (!showHint) {
       setShowHint(true);
       setHintsUsed(h => h + 1);
     }
+    setShowGuruModal(true);
   }
 
   const pramanaColors = { pratyaksa: 'var(--saffron)', anumana: 'var(--gold)', sabda: 'var(--sacred-teal)' };
@@ -215,16 +218,10 @@ export default function GameEngine({ level, user, onComplete, onExit, customQues
 
       {/* Hint section */}
       {!answered && (
-        <div className="hint-section">
-          {!showHint ? (
-            <button className="hint-btn" onClick={handleHint}>
-              💡 Use Hint <span style={{ opacity: 0.5, fontSize: 11 }}>(−10 pts)</span>
-            </button>
-          ) : (
-            <div className="hint-text">
-              💡 <strong>Hint:</strong> {currentQ.hint}
-            </div>
-          )}
+        <div className="hint-section" style={{ textAlign: 'center' }}>
+          <button className="btn-outline" onClick={handleHint} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--saffron)' }}>
+            <span style={{ fontSize: 18 }}>🧘🏽‍♂️</span> Consult the Guru {showHint ? '' : <span style={{ opacity: 0.5, fontSize: 11 }}>(−10 pts)</span>}
+          </button>
         </div>
       )}
 
@@ -244,6 +241,14 @@ export default function GameEngine({ level, user, onComplete, onExit, customQues
             {qIndex + 1 >= questions.length ? '🏁 See Results' : 'Next Question →'}
           </button>
         </div>
+      )}
+
+      {showGuruModal && (
+        <GuruHintModal 
+          hint={currentQ.hint} 
+          guruHint={currentQ.guru_hint} 
+          onClose={() => setShowGuruModal(false)} 
+        />
       )}
     </div>
   );
