@@ -29,8 +29,6 @@ export function authenticate(req, res, next) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 }
-<<<<<<< HEAD
-=======
 
 export function authenticateAdmin(req, res, next) {
   authenticate(req, res, () => {
@@ -40,4 +38,3 @@ export function authenticateAdmin(req, res, next) {
     next();
   });
 }
->>>>>>> a170f25 (added the admin login and its functionaly)
