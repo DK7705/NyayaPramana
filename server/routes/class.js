@@ -429,10 +429,11 @@ router.get('/effectiveness/:classId', authenticate, (req, res) => {
       return res.json({ classInfo: cls, data: [] });
     }
 
-    const sIds = students.map(s => `'${s.student_id}'`).join(',');
+    const sIds = students.map(s => s.student_id);
+    const placeholders = sIds.map(() => '?').join(',');
     
-    const prePost = db.prepare(`SELECT * FROM pre_post_tests WHERE student_id IN (${sIds})`).all();
-    const gameStats = db.prepare(`SELECT student_id, AVG(time_seconds) as avg_t, SUM(hints_used) as hints_used, COUNT(*) as attempts FROM game_results WHERE user_id IN (${sIds}) GROUP BY user_id`).all();
+    const prePost = db.prepare(`SELECT * FROM pre_post_tests WHERE student_id IN (${placeholders})`).all(...sIds);
+    const gameStats = db.prepare(`SELECT user_id as student_id, AVG(time_seconds) as avg_t, SUM(hints_used) as hints_used, COUNT(*) as attempts FROM game_results WHERE user_id IN (${placeholders}) GROUP BY user_id`).all(...sIds);
 
     res.json({ classInfo: cls, prePost, gameStats });
   } catch (error) {

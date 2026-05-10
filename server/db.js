@@ -124,6 +124,16 @@ db.exec(`
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES users(id)
   );
+
+  -- Performance indexes
+  CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
+  CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+  CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+  CREATE INDEX IF NOT EXISTS idx_game_results_user ON game_results(user_id);
+  CREATE INDEX IF NOT EXISTS idx_class_enrollments_class ON class_enrollments(class_id, status);
+  CREATE INDEX IF NOT EXISTS idx_class_enrollments_student ON class_enrollments(student_id);
+  CREATE INDEX IF NOT EXISTS idx_class_results_class ON class_results(class_id);
+  CREATE INDEX IF NOT EXISTS idx_pre_post_tests_student ON pre_post_tests(student_id);
 `);
 
 export default db;

@@ -141,7 +141,7 @@ export default function SequenceGame({ gameType, level, user, onComplete, onExit
 
   useEffect(() => {
     if (questions[qIndex]) setupRound(questions[qIndex]);
-  }, [qIndex]);
+  }, [qIndex, questions]);
 
   function setupRound(q) {
     const mixed = shuffle(q.steps.map((step, idx) => ({ ...step, originalIndex: idx })));

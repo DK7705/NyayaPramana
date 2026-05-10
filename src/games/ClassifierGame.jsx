@@ -69,16 +69,26 @@ export default function ClassifierGame({ gameType, level, user, onComplete, onEx
     return () => clearInterval(timerRef.current);
   }, [gameOver, questions]);
 
+  // Keep latest values in refs so the gameOver effect always reads fresh data
+  const scoreRef = useRef(score);
+  const correctRef = useRef(correct);
+  const qIndexRef = useRef(qIndex);
+  const timeLeftValRef = useRef(timeLeft);
+  scoreRef.current = score;
+  correctRef.current = correct;
+  qIndexRef.current = qIndex;
+  timeLeftValRef.current = timeLeft;
+
   useEffect(() => {
     if (gameOver) {
       setTimeout(() => {
          onComplete({
-            score: score,
-            accuracy: qIndex > 0 ? Math.round((correct / qIndex) * 100) : 0,
-            correct: correct,
-            total: qIndex,
+            score: scoreRef.current,
+            accuracy: qIndexRef.current > 0 ? Math.round((correctRef.current / qIndexRef.current) * 100) : 0,
+            correct: correctRef.current,
+            total: qIndexRef.current,
             hintsUsed: 0,
-            time: MAX_TIME - timeLeft,
+            time: MAX_TIME - timeLeftValRef.current,
             pramanaResults: classResultsRef.current
          });
       }, 1500); // short delay to show final score

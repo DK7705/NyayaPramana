@@ -33,7 +33,7 @@ export default function GameHub({ progress, onStartGame }) {
             >
               <div className="level-card-header" style={{ marginBottom: 16 }}>
                 <div className="level-badge">
-                  <div className="level-num" style={{ background: `rgba(${game.color.replace('var(--', '').replace(')', '')}, 0.2)`, border: `1px solid ${game.color}`, color: 'white' }}>
+                  <div className="level-num" style={{ background: 'rgba(255,255,255,0.08)', border: `1px solid ${game.color}`, color: 'white' }}>
                     {!isUnlocked ? '🔒' : game.icon}
                   </div>
                   <div>

@@ -76,10 +76,33 @@ seedDatabase().then(() => {
   // Serve static files from the React frontend app
   app.use(express.static(path.join(__dirname, '../dist')));
 
-  // Anything that doesn't match the above, send back index.html
+  // Return 404 JSON for unmatched API routes (must come before the SPA catch-all)
+  app.use('/api', (req, res) => {
+    res.status(404).json({ error: 'API endpoint not found' });
+  });
+
+  // Anything that doesn't match the above, send back index.html (SPA routing)
   app.use((req, res) => {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
   });
+
+  // Global error handler — catches unhandled errors in route handlers
+  app.use((err, req, res, _next) => {
+    console.error('Unhandled server error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  });
+
+  // Periodic cleanup: remove expired sessions every 15 minutes
+  setInterval(() => {
+    try {
+      const result = db.prepare("DELETE FROM sessions WHERE expires_at <= datetime('now')").run();
+      if (result.changes > 0) {
+        console.log(`Session cleanup: removed ${result.changes} expired session(s).`);
+      }
+    } catch (e) {
+      console.error('Session cleanup error:', e);
+    }
+  }, 15 * 60 * 1000);
 
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

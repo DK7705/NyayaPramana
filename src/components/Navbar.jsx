@@ -30,7 +30,7 @@ export default function Navbar({ user, page, setPage, onLogout }) {
   const tabs = user.role === 'admin' ? adminTabs : user.role === 'teacher' ? teacherTabs : studentTabs;
 
   return (
-    <nav className="navbar">
+    <nav className="navbar" role="navigation" aria-label="Main navigation">
       <div className="nav-logo">
         <div className="nav-logo-icon">🕉️</div>
         <div>

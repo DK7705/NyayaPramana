@@ -205,7 +205,7 @@ export default function GameEngine({ level, user, onComplete, onExit, customQues
               else cls += ' neutral-reveal';
             }
             return (
-              <button key={idx} className={cls} onClick={() => handleAnswer(idx)} disabled={answered}>
+              <button key={idx} className={cls} onClick={() => handleAnswer(idx)} onKeyDown={e => e.key === 'Enter' && handleAnswer(idx)} disabled={answered} aria-label={`Option ${['A', 'B', 'C', 'D'][idx]}: ${opt}`}>
                 <span className="option-letter">{['A', 'B', 'C', 'D'][idx]}</span>
                 <span>{opt}</span>
                 {answered && idx === currentQ.answer && <span style={{ marginLeft: 'auto', fontSize: 18 }}>✓</span>}
