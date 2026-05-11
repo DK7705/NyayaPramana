@@ -36,7 +36,13 @@ Ensure you have Node.js (v18+) installed.
    npm install
    ```
 
-2. To run the development server (frontend and backend concurrently):
+2. **Environment Setup**: Copy the example environment file and add your Google Client ID.
+   ```bash
+   cp .env.example .env
+   ```
+   *Note: You must generate a Google OAuth Client ID from the Google Cloud Console to enable Google Sign-In.*
+
+3. To run the development server (frontend and backend concurrently):
    ```bash
    npm run dev:full
    ```

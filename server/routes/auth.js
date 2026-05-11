@@ -4,6 +4,9 @@ import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../db.js';
 import { authenticate, JWT_SECRET } from '../middleware/auth.js';
+import { OAuth2Client } from 'google-auth-library';
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const router = express.Router();
 
@@ -155,6 +158,84 @@ router.post('/heartbeat', authenticate, (req, res) => {
     res.json({ status: 'ok' });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/google', async (req, res) => {
+  const { credential, role, institution } = req.body;
+  
+  if (!credential) {
+    return res.status(400).json({ error: 'Google credential is required' });
+  }
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      // audience: process.env.GOOGLE_CLIENT_ID // Optional: restrict to specific client ID
+    });
+    
+    const payload = ticket.getPayload();
+    const email = payload.email;
+    const name = payload.name;
+
+    let user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    
+    if (!user) {
+      // Create new user
+      const id = uuidv4();
+      // Use a random password since they use Google to login
+      const hash = await bcrypt.hash(uuidv4(), 10);
+      
+      db.prepare('INSERT INTO users (id, name, email, password_hash, role, institution) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(id, name, email, hash, role || 'student', institution || null);
+
+      db.prepare('INSERT INTO user_progress (user_id) VALUES (?)').run(id);
+      
+      user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    }
+
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '15m' });
+    const sessionId = uuidv4();
+    
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
+    db.prepare(`
+      INSERT INTO sessions (id, user_id, token, expires_at, last_activity) 
+      VALUES (?, ?, ?, datetime('now', '+${SESSION_DURATION_MINUTES} minutes'), datetime('now'))
+    `).run(sessionId, user.id, token);
+
+    const progress = db.prepare('SELECT * FROM user_progress WHERE user_id = ?').get(user.id);
+    const hintsRow = db.prepare('SELECT COALESCE(SUM(hints_used),0) as total FROM game_results WHERE user_id = ?').get(user.id);
+    const preTest = db.prepare("SELECT * FROM pre_post_tests WHERE student_id = ? AND test_type = 'pre'").get(user.id);
+    const postTest = db.prepare("SELECT * FROM pre_post_tests WHERE student_id = ? AND test_type = 'post'").get(user.id);
+
+    res.json({
+      token,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, institution: user.institution },
+      progress: progress ? {
+        completedLevels: JSON.parse(progress.completed_levels),
+        totalScore: progress.total_score,
+        pramanaAccuracy: JSON.parse(progress.pramana_accuracy),
+        accuracy: progress.overall_accuracy || 0,
+        hintsUsed: hintsRow.total || 0,
+        preTestCompleted: !!preTest,
+        preTestScore: preTest ? preTest.score : null,
+        postTestCompleted: !!postTest,
+        postTestScore: postTest ? postTest.score : null
+      } : {
+        completedLevels: [],
+        totalScore: 0,
+        pramanaAccuracy: { pratyaksa: 0, anumana: 0, sabda: 0 },
+        accuracy: 0,
+        hintsUsed: hintsRow.total || 0,
+        preTestCompleted: !!preTest,
+        preTestScore: preTest ? preTest.score : null,
+        postTestCompleted: !!postTest,
+        postTestScore: postTest ? postTest.score : null
+      }
+    });
+  } catch (error) {
+    console.error('Google login error:', error);
+    res.status(500).json({ error: 'Google authentication failed' });
   }
 });
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { GoogleLogin } from '@react-oauth/google';
 
 export default function LoginPage({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false);
@@ -28,6 +29,15 @@ export default function LoginPage({ onLogin }) {
       }
     } catch (e) {
       setError(e.message || "Something went wrong. Please try again.");
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError("");
+    try {
+      await onLogin({ isGoogle: true, credential: credentialResponse.credential, role, institution });
+    } catch (e) {
+      setError(e.message || "Google sign-in failed. Please try again.");
     }
   };
 
@@ -98,6 +108,23 @@ export default function LoginPage({ onLogin }) {
 
           {role !== 'admin' && (
             <>
+              <div style={{ display: 'flex', alignItems: 'center', margin: '16px 0' }}>
+                <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                <span style={{ margin: '0 12px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>OR</span>
+                <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setError("Google sign-in was unsuccessful.")}
+                  theme="filled_black"
+                  shape="rectangular"
+                  text={isRegister ? "signup_with" : "signin_with"}
+                  width="100%"
+                />
+              </div>
+
               <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
                 {isRegister ? "Already have an account? " : "Don't have an account? "}
                 <span style={{ color: 'var(--gold)', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setIsRegister(!isRegister)}>

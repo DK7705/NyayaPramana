@@ -43,6 +43,7 @@ export const api = {
   // Auth
   register: (data) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   login: (data) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  googleLogin: (data) => request('/auth/google', { method: 'POST', body: JSON.stringify(data) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   getSession: () => request('/auth/session'),
   heartbeat: () => request('/auth/heartbeat', { method: 'POST' }),

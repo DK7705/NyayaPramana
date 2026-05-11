@@ -102,6 +102,15 @@ export function useSession() {
     return data;
   };
 
+  const googleLogin = async (credentials) => {
+    const data = await api.googleLogin(credentials);
+    localStorage.setItem('nyaya_token', data.token);
+    setUser(data.user);
+    setProgress(data.progress || { completedLevels: [], totalScore: 0, pramanaAccuracy: { pratyaksa: 0, anumana: 0, sabda: 0 } });
+    startTracking();
+    return data;
+  };
+
   const register = async (userData) => {
     await api.register(userData);
   };
@@ -126,6 +135,7 @@ export function useSession() {
     progress,
     loading,
     login,
+    googleLogin,
     logout,
     register,
     reloadProgress,

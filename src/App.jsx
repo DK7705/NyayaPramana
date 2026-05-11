@@ -54,6 +54,10 @@ export default function App() {
     if (userData.isRegister) {
       await register(userData);
       notify("Account created successfully! Please log in.");
+    } else if (userData.isGoogle) {
+      await session.googleLogin({ credential: userData.credential, role: userData.role, institution: userData.institution });
+      setPage('dashboard');
+      notify(`Welcome back via Google! 🕉️`, 'info');
     } else {
       await login({ email: userData.email, password: userData.password });
       setPage('dashboard');
